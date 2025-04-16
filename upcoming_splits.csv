@@ -1,0 +1,9 @@
+scrape_timestamp,Ticker,Exchange,CompanyName,Ratio,ExDate,fractional_share_handling
+2025-04-16 17:29:41,COKE,NASDAQ,"Coca-Cola Consolidated, Inc",10:1,2025-05-27,N/A (Forward Split or Pending AI)
+2025-04-16 17:29:41,BMRA,NCM,"Biomerica, Inc",1:8,2025-04-21,Unable to Determine
+2025-04-16 17:29:41,YHC,NCM,LQR House Inc,1:35,2025-04-21,Unable to Determine
+2025-04-16 17:29:41,SUNE,NCM,"SUNation Energy, Inc",1:200,2025-04-21,Unable to Determine
+2025-04-16 17:29:41,HOLO,NCM,MicroCloud Hologram Inc,1:40,2025-04-21,Unable to Determine
+2025-04-16 17:29:41,SEPSF,OTC Pink,ASEP Medical Holdings Inc,1:10,2025-04-17,Unable to Determine
+2025-04-16 17:29:41,KZIA,NCM,Kazia Therapeutics Limited,1:5,2025-04-17,Unable to Determine
+2025-04-16 17:29:41,IPOOF,OQX,InPlay Oil Corp,1:6,2025-04-17,AI Response Missing
