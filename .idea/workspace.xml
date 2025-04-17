@@ -5,19 +5,15 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="cdca9787-d7f4-483a-943a-245281873a0b" name="Changes" comment="Added log history so you don't notify the same stock over and over again.">
-      <change afterPath="$PROJECT_DIR$/.idea/StockSplitData.iml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/ai_handler.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/config.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data_utils.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/discord_notifier.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/history_manager.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/run_split_checker.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scraper.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/init.py" beforeDir="false" afterPath="$PROJECT_DIR$/init.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/file_handler.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ai_handler.py" beforeDir="false" afterPath="$PROJECT_DIR$/ai_handler.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/config.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/debug_page_source.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gemini_api_raw_responses.jsonl" beforeDir="false" afterPath="$PROJECT_DIR$/gemini_api_raw_responses.jsonl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/run_split_checker.py" beforeDir="false" afterPath="$PROJECT_DIR$/run_split_checker.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scraper.py" beforeDir="false" afterPath="$PROJECT_DIR$/scraper.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/upcoming_splits.csv" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -58,11 +54,12 @@
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
     "Python.__init__.executor": "Run",
+    "Python.ai_handler.executor": "Run",
     "Python.init.executor": "Run",
     "Python.run_split_checker.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "master"
+    "git-widget-placeholder": "modular"
   }
 }]]></component>
   <component name="SharedIndexes">
