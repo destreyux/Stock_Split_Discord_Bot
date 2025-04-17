@@ -20,6 +20,8 @@ AI_REQUEST_TEMPERATURE = 0.2 # Lower temp for more focused response
 
 # --- Scraping Configuration ---
 SELENIUM_WAIT_TIME = 30 # Seconds to wait for initial table elements
+# --- Discord Rate Limit ---
+DISCORD_RATE_LIMIT_DELAY = 2.0
 
 # --- Table Column Indices ---
 # !!! VERIFY THESE INDICES based on the target website's table structure !!!
