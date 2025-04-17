@@ -1,11 +1,12 @@
 # ai_handler.py
-"""Handles interaction with the Gemini API and logs responses."""
+"""Handles interaction with the Gemini API using batch questions."""
 
 import google.generativeai as genai
 import datetime
 import json
 import os
 import config # Import constants
+import traceback # <--- Added for detailed error printing
 
 # Store API Key globally within this module after configuration
 _GEMINI_API_KEY_CONFIGURED = None
@@ -28,131 +29,137 @@ def configure_gemini(api_key):
         _GEMINI_API_KEY_CONFIGURED = None
         return False
 
+# --- Log function signature matches batch request ---
 def log_ai_response(log_filepath, timestamp, tickers_requested, raw_response_text):
-    """Appends a log entry for an AI API call to a JSON Lines file."""
+    """Appends AI call log entry to a JSON Lines file."""
     log_entry = {
-        "timestamp": timestamp,
-        "model_used": config.AI_MODEL_NAME,
-        "tickers_requested": tickers_requested,
+        "timestamp": timestamp, "model_used": config.AI_MODEL_NAME,
+        "tickers_requested": tickers_requested, # Log the list of tickers
         "raw_response_text": raw_response_text
     }
     try:
-        dir_name = os.path.dirname(log_filepath)
+        dir_name = os.path.dirname(log_filepath);
         if dir_name: os.makedirs(dir_name, exist_ok=True)
         with open(log_filepath, 'a', encoding='utf-8') as f:
-            json.dump(log_entry, f, ensure_ascii=False)
-            f.write('\n')
-    except Exception as e:
-        print(f"Warning: Could not write AI response to log file '{log_filepath}': {e}")
+            json.dump(log_entry, f, ensure_ascii=False); f.write('\n')
+    except Exception as e: print(f"Warning: Could not write AI log: {e}")
 
 
+# --- REVERTED get_batch_ai_validation FOR SIMPLE QUESTION PROMPT (BATCH) ---
 def get_batch_ai_validation(reverse_split_list):
     """
-    Sends batch request to Gemini API, asking for reasoning, logs raw response.
-    Returns a dictionary mapping tickers to {'result': ..., 'reasoning': ...}.
+    Sends batch request to Gemini API using a simple question format for each split.
+    Returns classification {ticker: classification_string}. Logs raw response.
+    Includes detailed error printing on API failure.
     """
-    if not _GEMINI_API_KEY_CONFIGURED: return {} # Check if API was configured
+    if not _GEMINI_API_KEY_CONFIGURED: return {}
     if not reverse_split_list: return {}
     model = genai.GenerativeModel(config.AI_MODEL_NAME)
 
-    # Use constants from config
+    # --- Define the EXACT classification phrases from config ---
     CLASSIFICATION_PHRASES = config.CLASSIFICATION_PHRASES
     OUTPUT_ROUND_UP = config.OUTPUT_ROUND_UP
     OUTPUT_CASH = config.OUTPUT_CASH
     OUTPUT_UNKNOWN = config.OUTPUT_UNKNOWN
 
-    # --- PROMPT ASKING FOR REASONING ---
-    # (Using the last version you provided - emphasizing Google search, lenient sources)
+    # --- Simple Prompt Header - Focuses on OUTPUT FORMAT ---
     prompt_header = f"""
-Analyze the likely handling of fractional shares for the following REVERSE stock splits based on their Ticker, Ratio, and Ex-Date.
+ANSWER THE FOLLOWING QUESTIONS:
+How will [Ticker] reverse split fractional shares be handled?,
+How will [Companyname] reverse split fractional shares be handled?
 
-**Primary Search Method:**
-*   Perform a search equivalent to using Google with the query: `[TICKER] reverse split fractional shares`.
-*   Analyze top results, considering sources like SEC filings, exchange notices, reputable news (stocktitan.net, Reuters, Bloomberg), broker docs for THIS split.
+ONLY ANSWER IN THE FOLLOWING CONCLUSION:
+[Ticker]: Rounding Up Likely
+[Ticker]: Cash-in-Lieu Likely
 
-**Determine the LIKELY handling:**
-- {OUTPUT_ROUND_UP}: If evidence suggests rounding up.
-- {OUTPUT_CASH}: If evidence suggests cash OR lack of round-up specifics (default).
-- {OUTPUT_UNKNOWN}: If sources conflict significantly or info is scarce.
-
-**Response Format:**
-For each ticker, respond on a new line with:
-`Ticker: Classification | Reasoning: [Brief explanation of the key evidence/source found]`
-
-**Example:**
-XYZ: {OUTPUT_CASH} | Reasoning: No mention of rounding up found in recent 8-K filing or news searches, implying default cash handling.
-ABC: {OUTPUT_ROUND_UP} | Reasoning: Company press release dated [Date] explicitly stated fractions will be rounded up to the nearest whole share.
-SUNE: {OUTPUT_ROUND_UP} | Reasoning: Stocktitan and recent press release confirm round-up election for the May 2024 split.
-GHI: {OUTPUT_UNKNOWN} | Reasoning: Conflicting information found between broker FAQ and a news report; official filing unclear on fractional handling.
-
-**Reverse splits to analyze:**
+**Questions:**
 """
 
     prompt_body = ""
-    tickers_sent = []
-    for i, split_info in enumerate(reverse_split_list):
+    tickers_sent_map = {} # Map line number to ticker for accurate tracking
+    line_num = 1
+    for split_info in reverse_split_list:
         ticker = split_info.get('ticker', 'N/A')
-        ratio = split_info.get('ratio', 'N/A')
         ex_date_str = split_info.get('ex_date', 'N/A')
-        year = ex_date_str.split('-')[0] if ex_date_str and '-' in ex_date_str else "recent"
-        prompt_body += f"{i+1}. {ticker} (Ratio: {ratio}, Ex-Date: {ex_date_str}, Year: {year})\n"
-        tickers_sent.append(ticker)
+        # Format the simple question
+        # Added ratio for slightly more context for the AI
+        ratio_str = split_info.get('ratio', 'N/A')
+        prompt_body += f"{line_num}. Is {ticker}'s {ratio_str} reverse split fractional shares going to round up or be cash-in-lieu? (Ex-Date approx {ex_date_str})\n"
+        tickers_sent_map[line_num] = ticker # Store ticker associated with line number
+        line_num += 1
 
     full_prompt = prompt_header + prompt_body.strip()
+    # Get the list of unique tickers sent in this batch for logging/error handling
+    tickers_sent_list = list(dict.fromkeys([info['ticker'] for info in reverse_split_list if 'ticker' in info]))
 
-    print(f"Sending batch request w/ REASONING to Gemini for {len(reverse_split_list)} splits...")
+    print(f"Sending batch request (Simple Question Format) to Gemini for {len(tickers_sent_list)} unique tickers...")
+    # Map will store {ticker: classification_string}
     ai_results_map = {}
     response_text = ""
     log_timestamp = datetime.datetime.now().isoformat()
 
     try:
-        generation_config = {'temperature': 0.3}
+        generation_config = {'temperature': config.AI_REQUEST_TEMPERATURE} # Use temp from config
         response = model.generate_content(full_prompt, generation_config=generation_config)
         response_text = response.text
         print(f"  Received response from Gemini. Logging raw text...")
-        log_ai_response(config.AI_LOG_FILE_PATH, log_timestamp, tickers_sent, response_text)
+        # Log using the list of unique tickers sent
+        log_ai_response(config.AI_LOG_FILE_PATH, log_timestamp, tickers_sent_list, response_text)
+
+    # --- MODIFIED EXCEPTION BLOCK ---
     except Exception as e:
-        print(f"Gemini API Error: {e}")
-        return {t: {'result': "AI API Error", 'reasoning': ''} for t in tickers_sent}
+        print(f"\n---!!! Gemini API Error Encountered !!!---")
+        print(f"Error Type: {type(e).__name__}")
+        print(f"Error Message: {e}")
+        print("--- Full Traceback ---")
+        traceback.print_exc() # Print the detailed traceback
+        print("--- End Traceback ---")
+        # Return simple error map using the list of unique tickers
+        return {t: "AI API Error" for t in tickers_sent_list}
+    # --- END MODIFIED EXCEPTION BLOCK ---
 
-    # --- Attempt to Parse Classification AND Reasoning ---
-    print("Parsing AI response (including reasoning attempt)...")
+    # --- Parsing Logic (Expects only Ticker: Classification) ---
+    print("Parsing AI response...")
     response_lines = response_text.splitlines()
-    for ticker in tickers_sent:
-         ai_results_map[ticker] = {'result': "AI Response Missing", 'reasoning': ''}
+    allowed_results_lower = { phrase.lower() for phrase in CLASSIFICATION_PHRASES }
+    result_map_lower_to_proper = { phrase.lower(): phrase for phrase in CLASSIFICATION_PHRASES }
 
+    # Initialize results map with defaults for all requested unique tickers
+    for ticker in tickers_sent_list:
+         ai_results_map[ticker] = "AI Response Missing" # Default
+
+    processed_tickers = set() # Track tickers we found a response for
     for line in response_lines:
-        line = line.strip();
+        line = line.strip()
         if not line: continue
-        parts = line.split(":", 1);
-        if len(parts) < 2: continue
-        ticker_from_ai, rest_of_line = parts[0].strip(), parts[1].strip()
-        if ticker_from_ai not in tickers_sent: continue
+        # Handle potential numbering like "1. Ticker: Result"
+        if '.' in line:
+            potential_num = line.split('.', 1)[0]
+            if potential_num.isdigit():
+                 # It looks like a numbered list item, remove number and dot
+                 line = line.split('.', 1)[1].strip()
 
-        parsed_result = "AI Response Unclear"; extracted_reasoning = rest_of_line
-        found_classification = False
-        for phrase in CLASSIFICATION_PHRASES:
-            if rest_of_line.startswith(phrase):
-                parsed_result = phrase; found_classification = True
-                potential_reasoning = rest_of_line[len(phrase):].strip()
-                if potential_reasoning.startswith("| Reasoning:"): extracted_reasoning = potential_reasoning[len("| Reasoning:"):].strip()
-                elif potential_reasoning.startswith("|"): extracted_reasoning = potential_reasoning[1:].strip()
-                elif potential_reasoning.startswith("Reasoning:"): extracted_reasoning = potential_reasoning[len("Reasoning:"):].strip()
-                elif potential_reasoning.startswith("-"): extracted_reasoning = potential_reasoning[1:].strip()
-                elif potential_reasoning: extracted_reasoning = potential_reasoning
-                else: extracted_reasoning = "(Reasoning not distinctly separated or provided)"
-                break
+        parts = line.split(":", 1)
+        if len(parts) == 2:
+            ticker_from_ai, result_from_ai = parts[0].strip(), parts[1].strip()
+            result_lower = result_from_ai.lower()
 
-        if not found_classification: # Fallback check if phrase is just contained
-             for phrase in CLASSIFICATION_PHRASES:
-                  if phrase in rest_of_line:
-                       print(f"Warning: Found classification '{phrase}' for {ticker_from_ai}, but not at start. Parsing might be inaccurate.")
-                       reasoning_parts = rest_of_line.split(phrase, 1)
-                       parsed_result = phrase
-                       extracted_reasoning = reasoning_parts[1].strip() if len(reasoning_parts) > 1 else "(Fallback Parse - Reasoning unclear)"
-                       break
+            # Check if this ticker was actually requested AND hasn't been processed yet
+            if ticker_from_ai in tickers_sent_list and ticker_from_ai not in processed_tickers:
+                if result_lower in allowed_results_lower:
+                    ai_results_map[ticker_from_ai] = result_map_lower_to_proper[result_lower]
+                else:
+                    # Didn't match expected phrases exactly
+                    print(f"Warning: Unexpected AI result format for {ticker_from_ai}: '{result_from_ai}'")
+                    ai_results_map[ticker_from_ai] = "AI Response Unclear"
+                processed_tickers.add(ticker_from_ai) # Mark as processed
+            # else: Ignore unexpected/repeated tickers
 
-        ai_results_map[ticker_from_ai] = {'result': parsed_result, 'reasoning': extracted_reasoning}
+    # Final check for any tickers requested but not found in the response
+    missing_tickers = set(tickers_sent_list) - processed_tickers
+    if missing_tickers:
+         print(f"Warning: AI response still missing for expected tickers: {missing_tickers}")
+         # The map already has "AI Response Missing" as default for these
 
-    print(f"Finished parsing AI response attempt. Results obtained for {len(ai_results_map)}/{len(tickers_sent)} tickers.")
-    return ai_results_map
+    print(f"Finished parsing AI classification. Results obtained for {len(processed_tickers)}/{len(tickers_sent_list)} tickers.")
+    return ai_results_map # Returns {ticker: classification_string}
